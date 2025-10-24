@@ -3,90 +3,115 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
-interface RoadmapData {
+export interface RoadmapData {
   title: string;
   subtitle: string;
   pillars: { id: string; name: string }[];
   timeframes: {
     id: string;
-    title: string;
-    deliverables: { [pillarId: string]: string[] };
+    date: string;
+    name: string;
+    deliverables: { pillarId: string; tasks: string[] }[];
   }[];
 }
 
-const handleImageGenApiResponse = (response: any, context: string): string => {
-    if (!response.generatedImages || response.generatedImages.length === 0) {
-        console.error(`Image generation for ${context} failed. No images were returned.`, { response });
-        throw new Error(`The AI model did not return an image for the ${context}. This can happen due to safety filters or if the request is too complex.`);
-    }
-
-    const image = response.generatedImages[0];
-    if (image.image?.imageBytes) {
-        const base64ImageBytes: string = image.image.imageBytes;
-        return `data:image/png;base64,${base64ImageBytes}`;
-    }
-
-    const errorMessage = `The AI model returned an unexpected response structure for ${context}.`;
-    console.error(errorMessage, { response });
-    throw new Error(errorMessage);
+const roadmapSchema = {
+    type: Type.OBJECT,
+    properties: {
+        title: { type: Type.STRING, description: "The main title of the roadmap." },
+        subtitle: { type: Type.STRING, description: "The subtitle of the roadmap." },
+        pillars: {
+            type: Type.ARRAY,
+            description: "An array of strategic pillars.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    id: { type: Type.STRING, description: "A unique identifier for the pillar, starting with 'p' (e.g., 'p1', 'p2')." },
+                    name: { type: Type.STRING, description: "The name of the strategic pillar." }
+                },
+                required: ['id', 'name']
+            }
+        },
+        timeframes: {
+            type: Type.ARRAY,
+            description: "An array of timeframes for the roadmap.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    id: { type: Type.STRING, description: "A unique identifier for the timeframe, starting with 't' (e.g., 't1', 't2')." },
+                    date: { type: Type.STRING, description: "The date range for the timeframe (e.g., '2025 - Q1 & Q2')." },
+                    name: { type: Type.STRING, description: "The descriptive name for the timeframe (e.g., 'FlowX Build-out')." },
+                    deliverables: {
+                        type: Type.ARRAY,
+                        description: "An array of objects, where each object links a pillar ID to a list of its tasks/deliverables for this timeframe.",
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                pillarId: {
+                                    type: Type.STRING,
+                                    description: "The ID of the pillar (e.g., 'p1', 'p2')."
+                                },
+                                tasks: {
+                                    type: Type.ARRAY,
+                                    description: "An array of deliverable strings for the corresponding pillar.",
+                                    items: {
+                                        type: Type.STRING
+                                    }
+                                }
+                            },
+                            required: ['pillarId', 'tasks']
+                        }
+                    }
+                },
+                required: ['id', 'date', 'name', 'deliverables']
+            }
+        }
+    },
+    required: ['title', 'subtitle', 'pillars', 'timeframes']
 };
 
-export const generateInfographic = async (data: RoadmapData): Promise<string> => {
-    console.log('Starting infographic generation with data:', data);
+
+export const parseRoadmapText = async (text: string): Promise<RoadmapData> => {
+    console.log('Starting roadmap text parsing...');
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const prompt = `
-Generate a high-resolution, professional, and visually appealing infographic for a technology roadmap.
+Parse the following roadmap, provided in Markdown format, into a structured JSON object.
 
-**Style Guidelines:**
-- **Theme:** Modern, clean, and corporate. A dark theme is preferred. Use a professional color palette with deep blues, teals, and vibrant greens for highlights.
-- **Layout:** A structured grid or matrix format. It should be easy to read, with strategic pillars as distinct rows and timeframes as columns.
-- **Typography:** Use a clean, sans-serif font (like Inter or Helvetica). Ensure high contrast and readability. Use different font weights to create a clear visual hierarchy (e.g., bold for titles, regular for deliverables).
-- **Iconography:** Include simple, modern icons next to each "Strategic Pillar" name to visually represent them. For example:
-    - Core Platform & Architecture: an icon with connected nodes or a blueprint.
-    - Hybrid Cloud & Security: a cloud with a shield icon.
-    - Observability: a magnifying glass or a dashboard/monitoring icon.
-    - GenAI Integration: a brain, a neural network, or a sparkle/AI icon.
-- **Overall Feel:** Sophisticated, trustworthy, and forward-looking. Suitable for a presentation to executives. Do not include any placeholder text like "Lorem Ipsum".
+**Instructions:**
+1.  Extract the main title and subtitle.
+2.  Identify all strategic pillars and assign a unique ID to each (p1, p2, p3, ...).
+3.  Identify all timeframes and assign a unique ID to each (t1, t2, t3, ...).
+4.  For each timeframe, separate the date from the descriptive name. For example, in "2025 - Q1 & Q2: FlowX Build-out", the 'date' is "2025 - Q1 & Q2" and the 'name' is "FlowX Build-out".
+5.  For each timeframe, create a 'deliverables' array. Each item in this array should be an object containing the 'pillarId' and a 'tasks' array with the corresponding deliverable strings.
+6.  Adhere strictly to the provided JSON schema.
 
-**Content to Include:**
-
-**Main Title:** ${data.title}
-**Subtitle:** ${data.subtitle}
-
-**Structure:**
-The infographic must be a table or matrix with "Strategic Pillars" as rows and "Timeframes" as columns.
-
-**Rows (Strategic Pillars):**
-${data.pillars.map(p => `- ${p.name}`).join('\n')}
-
-**Columns (Timeframes):**
-
-${data.timeframes.map(t => `
-**Column Title: ${t.title}**
-Deliverables:
-${data.pillars.map(p => `
-- **For Pillar "${p.name}":**
-  ${(t.deliverables[p.id] || []).map(d => `  - ${d}`).join('\n')}
-`).join('')}
-`).join('\n')}
-
-Please generate the image based on these detailed instructions. The output must be a single, complete infographic image.
+**Roadmap Markdown:**
+${text}
 `;
 
-    console.log('Sending prompt to the image generation model...');
-    const response = await ai.models.generateImages({
-        model: 'imagen-4.0-generate-001',
-        prompt: prompt,
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        contents: prompt,
         config: {
-          numberOfImages: 1,
-          outputMimeType: 'image/png',
-          aspectRatio: '16:9',
+          responseMimeType: "application/json",
+          responseSchema: roadmapSchema,
         },
     });
-    console.log('Received response from model.', response);
-
-    return handleImageGenApiResponse(response, 'infographic');
+    
+    console.log('Received parsed data from model.');
+    const jsonStr = response.text.trim();
+    try {
+        const parsedJson = JSON.parse(jsonStr);
+        // Basic validation
+        if (!parsedJson.pillars || !parsedJson.timeframes) {
+            throw new Error("Parsed JSON is missing key properties 'pillars' or 'timeframes'.");
+        }
+        return parsedJson as RoadmapData;
+    } catch (e) {
+        console.error("Failed to parse JSON response:", jsonStr, e);
+        throw new Error("The AI model returned an invalid data structure. Please check the input format or try again.");
+    }
 };

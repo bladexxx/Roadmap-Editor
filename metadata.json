@@ -1,6 +1,6 @@
 {
   "name": "Strategic Pillar Roadmap",
-  "description": "A powerful, AI photo editor. Retouch, apply creative filters, and make professional adjustments to your images using simple text prompts.",
+  "description": "Generate and edit interactive roadmap infographics from simple text descriptions. Visualize your strategy in both Pillar and Timeline views.",
   "requestFramePermissions": [],
   "prompt": ""
 }
