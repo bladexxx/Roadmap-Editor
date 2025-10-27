@@ -197,7 +197,7 @@ const TimelineView: React.FC<{ data: RoadmapData; onEdit: (timeframeId: string, 
           <div className="inline-block text-left">
             <div className="flex items-start">
               {timeframesWithPillars.map((timeframe, index) => (
-                <div key={timeframe.id} className="flex-shrink-0 relative px-4" style={{ width: '320px' }}>
+                <div key={timeframe.id} className="flex-shrink-0 relative px-4 min-w-[320px]">
                   {/* Top part: Date and Marker */}
                   <div className="relative h-16 w-full text-center">
                     <div className="absolute bottom-4 left-0 right-0 text-sm font-semibold text-gray-300 whitespace-nowrap">{timeframe.date}</div>
@@ -206,7 +206,7 @@ const TimelineView: React.FC<{ data: RoadmapData; onEdit: (timeframeId: string, 
                   
                   {/* Content below timeline */}
                   <div className="mt-8">
-                    <h3 className="text-lg font-bold text-center mb-4">{timeframe.name}</h3>
+                    <h3 className="text-lg font-bold text-center mb-4 whitespace-nowrap">{timeframe.name}</h3>
                     <div className="flex flex-col gap-4">
                       {timeframe.deliverablesByPillar.map(p => (
                         <div key={p.pillar.id} className={`p-3 rounded-lg ${p.color.bg} border-l-4 ${p.color.border}`}>
